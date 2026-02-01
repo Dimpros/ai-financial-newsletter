@@ -317,55 +317,17 @@ def markdown_to_html(md_content):
     # Convert markdown to HTML
     html_body = markdown.markdown(md_content, extensions=['extra'])
 
-    # Wrap in simple, clean HTML template
-    html_template = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <style>
-            body {{
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                line-height: 1.6;
-                color: #333;
-                max-width: 800px;
-                margin: 0 auto;
-                padding: 20px;
-            }}
-            h1 {{
-                color: #1a1a1a;
-                border-bottom: 2px solid #ff6b35;
-                padding-bottom: 10px;
-            }}
-            h2 {{
-                color: #2d3748;
-                margin-top: 30px;
-            }}
-            a {{
-                color: #3182ce;
-            }}
-            strong {{
-                color: #1a1a1a;
-            }}
-            ul {{
-                padding-left: 20px;
-            }}
-            li {{
-                margin-bottom: 8px;
-            }}
-            hr {{
-                border: none;
-                border-top: 1px solid #e2e8f0;
-                margin: 20px 0;
-            }}
-        </style>
-    </head>
-    <body>
-        {html_body}
-    </body>
-    </html>
-    """
-    return html_template
+    # Load HTML template from external file
+    template_file = os.path.join(BASE_DIR, "email_template.html")
+    try:
+        with open(template_file, 'r') as f:
+            html_template = f.read()
+        # Use replace instead of format to avoid CSS brace conflicts
+        return html_template.replace('{content}', html_body)
+    except FileNotFoundError:
+        # Fallback to basic template if file not found
+        print(f"⚠️ Warning: {template_file} not found. Using basic template.")
+        return f"<html><body>{html_body}</body></html>"
 
 
 def send_email(content):
