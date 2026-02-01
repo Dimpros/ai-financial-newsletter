@@ -4,8 +4,8 @@ Automated daily financial newsletter that scrapes Google News, summarizes with Y
 
 ## Features
 
-- 🌐 **Google News RSS** - Pulls fresh news from 5 categories (World, Business, Tech, Markets, Crypto), expand to as many as you like.
-- 🤖 **Gemini AI** - Generates insightful macro analysis with your portfolio context. I'm a big fan of David Chappelle, but you can change the prompt.
+- 🌐 **Google News RSS** - Pulls fresh news from 5 categories (World, Business, Tech, Markets, Crypto), expand to as many as you like
+- 🤖 **Gemini AI** - Generates insightful macro analysis with your portfolio context
 - 📊 **Portfolio Integration** - Connects to Google Sheets for dynamic portfolio tracking
 - 📧 **Email Delivery** - Sends styled HTML newsletter to your inbox
 - ⏰ **Daily Scheduling** - Run automatically every morning with launchd/cron
