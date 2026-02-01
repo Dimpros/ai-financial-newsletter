@@ -14,10 +14,9 @@ Automated daily financial newsletter that scrapes Google News, summarizes with G
 
 ## What's New
 
-- **External Configuration Files** - Prompt (`prompt.txt`) and email template (`email_template.html`) are now separate files for easy customization
+- **External Configuration Files** - Prompt (`prompt.txt`) and email template (`email_template.html`) are now separate files
 - **Optional Portfolio** - Works without Google Sheets - skips portfolio sections automatically
-- **Legal Disclaimer** - Auto-appended to every newsletter
-- **New Gemini SDK** - Uses the latest `google-genai` package (not deprecated `google.generativeai`)
+- **New Gemini SDK** - Uses the latest `google-genai` package
 
 ## Sample Output
 
