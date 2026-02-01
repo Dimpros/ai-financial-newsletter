@@ -1,15 +1,23 @@
 # 📰 AI Financial Newsletter Automation
 
-Automated daily financial newsletter that scrapes Google News, summarizes with Your preferred LLM (Gemini by default), and emails you a personalized market briefing based on your portfolio.
+Automated daily financial newsletter that scrapes Google News, summarizes with Gemini AI, and emails you a personalized market briefing based on your portfolio.
 
 ## Features
 
-- 🌐 **Google News RSS** - Pulls fresh news from 5 categories (World, Business, Tech, Markets, Crypto), expand to as many as you like
-- 🤖 **Gemini AI** - Generates insightful macro analysis with your portfolio context
-- 📊 **Portfolio Integration** - Connects to Google Sheets for dynamic portfolio tracking
+- 🌐 **Google News RSS** - Pulls fresh news from 5 categories (World, Business, Tech, Markets, Crypto)
+- 🤖 **Gemini AI** - Generates insightful macro analysis with customizable personality
+- 📊 **Portfolio Integration** - Optional Google Sheets connection for dynamic portfolio tracking
 - 📧 **Email Delivery** - Sends styled HTML newsletter to your inbox
 - ⏰ **Daily Scheduling** - Run automatically every morning with launchd/cron
 - 📁 **Archive** - Saves all newsletters to `archive/` folder
+- 🎨 **Customizable** - External prompt, email template, and news categories
+
+## What's New
+
+- **External Configuration Files** - Prompt (`prompt.txt`) and email template (`email_template.html`) are now separate files for easy customization
+- **Optional Portfolio** - Works without Google Sheets - skips portfolio sections automatically
+- **Legal Disclaimer** - Auto-appended to every newsletter
+- **New Gemini SDK** - Uses the latest `google-genai` package (not deprecated `google.generativeai`)
 
 ## Sample Output
 
@@ -21,7 +29,9 @@ The Fed's hawkish pivot signals higher-for-longer rates, making cash king and gr
 
 ### **Fed Signals No Rate Cuts Until 2025**
 The Fed just threw cold water on rate cut hopes. Powell's latest comments suggest...
+
 **The Data:** 10Y Treasury yield at 4.5%, Fed funds rate unchanged at 5.25-5.50%
+
 👉 [Read more](https://news.google.com/...)
 
 ## 💼 Bag Check (Portfolio Stress Test)
@@ -33,13 +43,18 @@ The Fed just threw cold water on rate cut hopes. Powell's latest comments sugges
 * Hold cash position - wait for better entry points
 * Accumulate on 10%+ dips in quality names
 * Avoid speculative growth until rate clarity
+
+---
+*Disclaimer: This newsletter is for informational purposes only...*
 ```
+
+> **Note:** Portfolio sections ("Bag Check" and "Playbook") are automatically skipped if no portfolio is configured.
 
 ## Quick Start
 
 ### 1. Clone the repo
 ```bash
-git clone https://github.com/yourusername/ai-financial-newsletter.git
+git clone https://github.com/Dimpros/ai-financial-newsletter.git
 cd ai-financial-newsletter
 ```
 
@@ -134,6 +149,12 @@ crontab -e
 
 ## Customization
 
+### AI Prompt (`prompt.txt`)
+Edit `prompt.txt` to change the newsletter personality, structure, or style. Uses `{news_text}` and `{portfolio_string}` placeholders.
+
+### Email Template (`email_template.html`)
+Edit `email_template.html` to customize the email styling. Uses `{content}` placeholder for the newsletter body.
+
 ### News Categories
 Edit `GOOGLE_NEWS_FEEDS` in the script to add/remove categories:
 ```python
@@ -144,26 +165,19 @@ GOOGLE_NEWS_FEEDS = {
 }
 ```
 
-### AI Prompt
-Modify the prompt in `summarize_with_gemini()` to change the newsletter style, tone, or structure.
-
-### Default Portfolio
-If not using Google Sheets, edit the default portfolio in `main()`:
-```python
-USER_PORTFOLIO[:] = ["AAPL", "GOOGL", "MSFT", "SPY", "BTC"]
-```
-
 ## Project Structure
 
 ```
 .
 ├── simple_newsletter.py    # Main script
+├── prompt.txt              # AI prompt template (customizable)
+├── email_template.html     # Email styling (customizable)
 ├── requirements.txt        # Python dependencies
-├── .env.example           # Environment template
-├── .env                   # Your config (git-ignored)
-├── service_account.json   # Google Sheets credentials (git-ignored)
-└── archive/               # Saved newsletters
-    └── newsletter_2024-01-15.md
+├── .env.example            # Environment template
+├── .env                    # Your config (git-ignored)
+├── service_account.json    # Google Sheets credentials (git-ignored)
+└── archive/                # Saved newsletters
+    └── newsletter_2026-02-01.md
 ```
 
 ## License
@@ -177,3 +191,4 @@ PRs welcome! Ideas for improvement:
 - Slack/Discord integration
 - Web dashboard
 - Historical trend analysis
+- Support for other LLMs (Claude, GPT-4, etc.)
