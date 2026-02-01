@@ -416,12 +416,17 @@ def main():
     print("🚀 SIMPLE FINANCIAL NEWSLETTER AUTOMATION")
     print("="*60 + "\n")
     
-    # Step 0: GSheet Auth
+    # Step 0: GSheet Auth (optional)
     gc = authenticate_gsheet()
-    
-    # Read Portfolio from Sheet
+
+    # Read Portfolio from Sheet (optional)
     if gc:
         get_portfolio_from_sheet(gc)
+
+    # If no portfolio loaded, use placeholder message
+    if not USER_PORTFOLIO or USER_PORTFOLIO[0].startswith("ERROR"):
+        USER_PORTFOLIO[:] = ["Portfolio not configured - general market analysis only"]
+        print("📋 No portfolio configured. Proceeding with general market analysis.\n")
     
     # Step 1: Get news
     articles = get_news()
