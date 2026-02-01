@@ -1,6 +1,6 @@
 # 📰 AI Financial Newsletter Automation
 
-Automated daily financial newsletter that scrapes Google News, summarizes with Gemini AI, and emails you a personalized market briefing based on your portfolio.
+Automated daily financial newsletter that scrapes Google News, summarizes with Your preferred LLM (Gemini by default), and emails you a personalized market briefing based on your portfolio.
 
 ## Features
 
