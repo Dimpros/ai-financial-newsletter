@@ -53,8 +53,6 @@ GOOGLE_NEWS_FEEDS = {
 
 # Google Sheets Configuration
 GOOGLE_SHEET_NAME = os.getenv('GOOGLE_SHEET_NAME', 'Your-Portfolio-Sheet-Name')
-PORTFOLIO_TAB_NAME = os.getenv('PORTFOLIO_TAB_NAME', 'Sheet1')
-PORTFOLIO_COLUMNS = [2]  # Column B only (tickers)
 PORTFOLIO_HISTORY_TAB = os.getenv('PORTFOLIO_HISTORY_TAB', 'Sheet2')
 
 CREDENTIALS_FILE = os.path.join(BASE_DIR, "service_account.json")
@@ -67,11 +65,11 @@ CREDENTIALS_FILE = os.path.join(BASE_DIR, "service_account.json")
 def authenticate_gsheet():
     """Authenticate with Google Sheets"""
     print("🔑 Step 0: Authenticating with Google Sheets...")
-    
+
     if not os.path.exists(CREDENTIALS_FILE):
         print(f"⚠️ Warning: {CREDENTIALS_FILE} not found. Skipping Google Sheets integration.")
         return None
-        
+
     try:
         scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
         creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=scope)
@@ -82,48 +80,12 @@ def authenticate_gsheet():
         print(f"❌ Error authenticating: {e}")
         return None
 
-def get_portfolio_from_sheet(gc):
-    """Read portfolio from Google Sheet (from multiple columns)"""
-    print("📈 Reading dynamic portfolio from Google Sheet...")
-    global USER_PORTFOLIO
-
-    try:
-        sh = gc.open(GOOGLE_SHEET_NAME)
-        # Try to open specific tab, otherwise first one
-        try:
-            worksheet = sh.worksheet(PORTFOLIO_TAB_NAME)
-        except:
-            worksheet = sh.sheet1
-            print(f"⚠️ Warning: '{PORTFOLIO_TAB_NAME}' tab not found, using first tab.")
-
-        # Get values from specified columns (B & C)
-        all_tickers = []
-        for col in PORTFOLIO_COLUMNS:
-            tickers = worksheet.col_values(col)
-            all_tickers.extend(tickers)
-
-        # Clean up list (remove empty and headers only - keep duplicates for different exchanges)
-        clean_tickers = []
-        for t in all_tickers:
-            t = t.strip() if t else ''
-            if t and t.lower() not in ['ticker', 'symbol', 'asset', 'stock', '']:
-                clean_tickers.append(t)
-
-        if clean_tickers:
-            USER_PORTFOLIO[:] = clean_tickers  # Update global list in-place
-            print(f"✓ Loaded {len(clean_tickers)} assets from sheet: {', '.join(clean_tickers)}")
-        else:
-            USER_PORTFOLIO[:] = ["ERROR: No portfolio data found in Google Sheet"]
-            print("❌ Sheet columns were empty!")
-
-    except Exception as e:
-        USER_PORTFOLIO[:] = [f"ERROR: Could not load portfolio - {e}"]
-        print(f"❌ Error reading portfolio: {e}")
-
 
 def get_portfolio_history(gc):
-    """Read portfolio history from Sheet2 (date, ticker, value, notes)"""
+    """Read portfolio history from Sheet2 (date, ticker, value, notes)
+    Also extracts current tickers from the latest snapshot date."""
     print("📊 Reading portfolio history from Sheet2...")
+    global USER_PORTFOLIO
 
     try:
         sh = gc.open(GOOGLE_SHEET_NAME)
@@ -139,7 +101,22 @@ def get_portfolio_history(gc):
             print("⚠️ No history data found in Sheet2.")
             return ""
 
-        # Format history as readable text for the AI
+        # Find the latest date in the history
+        dates = [row.get('date', '') for row in rows if row.get('date', '')]
+        latest_date = max(dates) if dates else None
+
+        # Extract current tickers from the latest snapshot
+        if latest_date:
+            latest_tickers = [
+                row.get('ticker', '').strip()
+                for row in rows
+                if row.get('date', '') == latest_date and row.get('ticker', '').strip()
+            ]
+            if latest_tickers:
+                USER_PORTFOLIO[:] = latest_tickers
+                print(f"✓ Current portfolio ({latest_date}): {', '.join(latest_tickers)}")
+
+        # Format full history as readable text for the AI
         history_text = "## Portfolio History (Snapshot Data)\n"
         history_text += "| Date | Ticker | Value | Notes |\n"
         history_text += "|------|--------|-------|-------|\n"
@@ -423,10 +400,9 @@ def main():
     # Step 0: GSheet Auth (optional)
     gc = authenticate_gsheet()
 
-    # Read Portfolio from Sheet (optional)
+    # Read Portfolio history from Sheet2 (also extracts current tickers)
     portfolio_history = ""
     if gc:
-        get_portfolio_from_sheet(gc)
         portfolio_history = get_portfolio_history(gc)
 
     # If no portfolio loaded, use placeholder message
