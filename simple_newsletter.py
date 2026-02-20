@@ -82,8 +82,8 @@ def authenticate_gsheet():
 
 
 def get_portfolio_history(gc):
-    """Read portfolio history from Sheet2 (date, ticker, value, notes)
-    Also extracts current tickers from the latest snapshot date."""
+    """Read portfolio history from Sheet2, pre-calculate stats per ticker,
+    and return a clean summary for the AI. Also sets USER_PORTFOLIO from latest snapshot."""
     print("📊 Reading portfolio history from Sheet2...")
     global USER_PORTFOLIO
 
@@ -101,35 +101,144 @@ def get_portfolio_history(gc):
             print("⚠️ No history data found in Sheet2.")
             return ""
 
-        # Find the latest date in the history
-        dates = [row.get('date', '') for row in rows if row.get('date', '')]
-        latest_date = max(dates) if dates else None
-
-        # Extract current tickers from the latest snapshot
-        if latest_date:
-            latest_tickers = [
-                row.get('ticker', '').strip()
-                for row in rows
-                if row.get('date', '') == latest_date and row.get('ticker', '').strip()
-            ]
-            if latest_tickers:
-                USER_PORTFOLIO[:] = latest_tickers
-                print(f"✓ Current portfolio ({latest_date}): {', '.join(latest_tickers)}")
-
-        # Format full history as readable text for the AI
-        history_text = "## Portfolio History (Snapshot Data)\n"
-        history_text += "| Date | Ticker | Value | Notes |\n"
-        history_text += "|------|--------|-------|-------|\n"
+        # Build a dict: {ticker: {date: value}}
+        from collections import defaultdict
+        ticker_history = defaultdict(dict)
+        all_dates = set()
 
         for row in rows:
-            date = row.get('date', '')
-            ticker = row.get('ticker', '')
+            date = str(row.get('date', '')).strip()
+            ticker = str(row.get('ticker', '')).strip()
             value = row.get('value', '')
-            notes = row.get('notes', '')
-            if ticker:  # Skip empty rows
-                history_text += f"| {date} | {ticker} | {value} | {notes} |\n"
+            if not ticker or not date:
+                continue
+            try:
+                value = float(str(value).replace(',', '').replace('$', ''))
+            except (ValueError, TypeError):
+                continue
+            ticker_history[ticker][date] = value
+            all_dates.add(date)
 
-        print(f"✓ Loaded {len(rows)} history rows from Sheet2")
+        if not ticker_history:
+            print("⚠️ No valid data parsed from Sheet2.")
+            return ""
+
+        sorted_dates = sorted(all_dates)
+        latest_date = sorted_dates[-1]
+        earliest_date = sorted_dates[0]
+
+        # Find dates for 7d and 30d lookback
+        from datetime import datetime, timedelta
+        try:
+            latest_dt = datetime.strptime(latest_date, '%Y-%m-%d')
+        except ValueError:
+            try:
+                latest_dt = datetime.strptime(latest_date, '%d/%m/%Y')
+            except ValueError:
+                latest_dt = None
+
+        def find_closest_date(target_dt, dates):
+            """Find the closest available date to target"""
+            if not target_dt:
+                return None
+            closest = None
+            min_diff = float('inf')
+            for d in dates:
+                try:
+                    dt = datetime.strptime(d, '%Y-%m-%d')
+                except ValueError:
+                    try:
+                        dt = datetime.strptime(d, '%d/%m/%Y')
+                    except ValueError:
+                        continue
+                diff = abs((dt - target_dt).days)
+                if diff < min_diff:
+                    min_diff = diff
+                    closest = d
+            return closest
+
+        date_7d = find_closest_date(latest_dt - timedelta(days=7), sorted_dates) if latest_dt else None
+        date_30d = find_closest_date(latest_dt - timedelta(days=30), sorted_dates) if latest_dt else None
+
+        # Calculate total portfolio value on latest date
+        total_latest = sum(
+            vals.get(latest_date, 0)
+            for vals in ticker_history.values()
+        )
+
+        # Set USER_PORTFOLIO from latest snapshot tickers
+        latest_tickers = [t for t, vals in ticker_history.items() if latest_date in vals]
+        if latest_tickers:
+            USER_PORTFOLIO[:] = latest_tickers
+            print(f"✓ Current portfolio ({latest_date}): {', '.join(latest_tickers)}")
+
+        # Build pre-calculated summary per ticker
+        summary_lines = []
+        for ticker in sorted(ticker_history.keys()):
+            vals = ticker_history[ticker]
+            current_val = vals.get(latest_date)
+            first_val = vals.get(earliest_date)
+
+            if current_val is None:
+                status = "CLOSED/SOLD (not in latest snapshot)"
+                summary_lines.append(f"- {ticker}: {status}")
+                continue
+
+            # % weight in portfolio
+            weight_pct = (current_val / total_latest * 100) if total_latest else 0
+
+            # % change overall (first date → latest)
+            overall_pct = ((current_val - first_val) / first_val * 100) if first_val else None
+
+            # % change last 7 days
+            val_7d = vals.get(date_7d) if date_7d else None
+            pct_7d = ((current_val - val_7d) / val_7d * 100) if val_7d else None
+
+            # % change last 30 days
+            val_30d = vals.get(date_30d) if date_30d else None
+            pct_30d = ((current_val - val_30d) / val_30d * 100) if val_30d else None
+
+            # Peak value and drawdown
+            peak_val = max(vals.values())
+            peak_date = max(vals, key=vals.get)
+            drawdown_pct = ((current_val - peak_val) / peak_val * 100) if peak_val else 0
+
+            # Build line
+            line = f"- {ticker}: {weight_pct:.1f}% of portfolio"
+            if overall_pct is not None:
+                line += f" | {overall_pct:+.1f}% since {earliest_date}"
+            if pct_7d is not None:
+                line += f" | {pct_7d:+.1f}% (7d)"
+            if pct_30d is not None:
+                line += f" | {pct_30d:+.1f}% (30d)"
+            if drawdown_pct < -10:
+                line += f" | ⚠️ {drawdown_pct:.1f}% from peak ({peak_date})"
+            elif peak_date == latest_date:
+                line += f" | 🏆 At all-time high"
+
+            summary_lines.append(line)
+
+        # Identify biggest winner and loser
+        movers = []
+        for ticker, vals in ticker_history.items():
+            first_val = vals.get(earliest_date)
+            current_val = vals.get(latest_date)
+            if first_val and current_val:
+                movers.append((ticker, (current_val - first_val) / first_val * 100))
+
+        movers.sort(key=lambda x: x[1], reverse=True)
+
+        # Build final output
+        history_text = f"## Portfolio Analysis (as of {latest_date})\n"
+        history_text += f"Data range: {earliest_date} → {latest_date} ({len(sorted_dates)} snapshots)\n\n"
+        history_text += "### Per-Ticker Stats (weight | overall change | 7d | 30d)\n"
+        history_text += "\n".join(summary_lines)
+
+        if movers:
+            history_text += f"\n\n### Top Performer: {movers[0][0]} ({movers[0][1]:+.1f}% overall)"
+            history_text += f"\n### Worst Performer: {movers[-1][0]} ({movers[-1][1]:+.1f}% overall)"
+
+        print(f"✓ Pre-calculated stats for {len(ticker_history)} tickers across {len(sorted_dates)} snapshots")
         return history_text
 
     except Exception as e:
