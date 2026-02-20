@@ -55,6 +55,7 @@ GOOGLE_NEWS_FEEDS = {
 GOOGLE_SHEET_NAME = os.getenv('GOOGLE_SHEET_NAME', 'Your-Portfolio-Sheet-Name')
 PORTFOLIO_TAB_NAME = os.getenv('PORTFOLIO_TAB_NAME', 'Sheet1')
 PORTFOLIO_COLUMNS = [2]  # Column B only (tickers)
+PORTFOLIO_HISTORY_TAB = os.getenv('PORTFOLIO_HISTORY_TAB', 'Sheet2')
 
 CREDENTIALS_FILE = os.path.join(BASE_DIR, "service_account.json")
 
@@ -120,6 +121,43 @@ def get_portfolio_from_sheet(gc):
         print(f"❌ Error reading portfolio: {e}")
 
 
+def get_portfolio_history(gc):
+    """Read portfolio history from Sheet2 (date, ticker, value, notes)"""
+    print("📊 Reading portfolio history from Sheet2...")
+
+    try:
+        sh = gc.open(GOOGLE_SHEET_NAME)
+        try:
+            worksheet = sh.worksheet(PORTFOLIO_HISTORY_TAB)
+        except:
+            print(f"⚠️ Warning: '{PORTFOLIO_HISTORY_TAB}' tab not found. Skipping history.")
+            return ""
+
+        rows = worksheet.get_all_records()
+
+        if not rows:
+            print("⚠️ No history data found in Sheet2.")
+            return ""
+
+        # Format history as readable text for the AI
+        history_text = "## Portfolio History (Snapshot Data)\n"
+        history_text += "| Date | Ticker | Value | Notes |\n"
+        history_text += "|------|--------|-------|-------|\n"
+
+        for row in rows:
+            date = row.get('date', '')
+            ticker = row.get('ticker', '')
+            value = row.get('value', '')
+            notes = row.get('notes', '')
+            if ticker:  # Skip empty rows
+                history_text += f"| {date} | {ticker} | {value} | {notes} |\n"
+
+        print(f"✓ Loaded {len(rows)} history rows from Sheet2")
+        return history_text
+
+    except Exception as e:
+        print(f"❌ Error reading portfolio history: {e}")
+        return ""
 
 
 # ============================================================================
@@ -239,18 +277,18 @@ def prepare_news_text(articles):
 # STEP 3: ASK GEMINI AI TO SUMMARIZE
 # ============================================================================
 
-def summarize_with_gemini(news_text):
+def summarize_with_gemini(news_text, portfolio_history=""):
     """Ask Gemini to create a newsletter"""
-    
+
     print("🤖 Step 3: Asking Gemini AI to summarize...")
-    
+
     # Your Gemini API key
     api_key = GEMINI_API_KEY
 
     if not api_key:
         print("❌ ERROR: GEMINI_API_KEY not configured")
         return "Error: No Gemini API key"
-    
+
     # Configure Gemini client
     client = genai.Client(api_key=api_key)
 
@@ -265,7 +303,11 @@ def summarize_with_gemini(news_text):
 
     # Fill in the placeholders
     portfolio_string = "\n".join([f"- {item}" for item in USER_PORTFOLIO])
-    final_prompt = prompt_template.format(news_text=news_text, portfolio_string=portfolio_string)
+    final_prompt = prompt_template.format(
+        news_text=news_text,
+        portfolio_string=portfolio_string,
+        portfolio_history=portfolio_history if portfolio_history else "No historical data available."
+    )
 
     try:
         # Ask Gemini
@@ -382,26 +424,28 @@ def main():
     gc = authenticate_gsheet()
 
     # Read Portfolio from Sheet (optional)
+    portfolio_history = ""
     if gc:
         get_portfolio_from_sheet(gc)
+        portfolio_history = get_portfolio_history(gc)
 
     # If no portfolio loaded, use placeholder message
     if not USER_PORTFOLIO or USER_PORTFOLIO[0].startswith("ERROR"):
         USER_PORTFOLIO[:] = ["Portfolio not configured - general market analysis only"]
         print("📋 No portfolio configured. Proceeding with general market analysis.\n")
-    
+
     # Step 1: Get news
     articles = get_news()
-    
+
     if not articles:
         print("❌ No articles found. Check your API key and try again.")
         return
-    
+
     # Step 2: Prepare for AI
     news_text = prepare_news_text(articles)
-    
+
     # Step 3: Summarize with AI
-    newsletter = summarize_with_gemini(news_text)
+    newsletter = summarize_with_gemini(news_text, portfolio_history)
     
     # Step 4: Save it
     filename = save_newsletter(newsletter)

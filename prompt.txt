@@ -7,7 +7,11 @@ Input Text:
 {news_text}
 
 *** USER PORTFOLIO & STRATEGY ***
+Current Holdings:
 {portfolio_string}
+
+Portfolio History (value snapshots over time):
+{portfolio_history}
 **********************
 
 Create a concise "Geopolitical Heat Check" newsletter:
@@ -33,8 +37,9 @@ For each story use this EXACT format:
 - If the portfolio says "Portfolio not configured" or contains an error message, SKIP the "Bag Check" and "Playbook" sections entirely. Do NOT include them.
 
 ## 💼 Bag Check (Portfolio Stress Test)
-(Cross-reference the news strictly against the "User Portfolio" list above.)
+(Cross-reference the news strictly against the "User Portfolio" and historical data above.)
 * **Direct Hit:** List specific tickers from the portfolio that are directly affected.
+* **Portfolio Trend:** Based on the historical snapshots, identify which positions are growing, shrinking, or flat. Call out any notable value changes.
 * **The Verdict:** [Thesis Intact / Thesis Broken / Buy the Dip]
 * **The Logic:** Analyze the correlation. If the news is bad for the sector but good for the specific asset, explain why. Distinguish between a temporary price drop and a fundamental business break.
 
